@@ -23,7 +23,7 @@ const { width } = Dimensions.get('window');
 
 // 🔌 CONFIGURATION
 // Once you host your backend on Render, paste the URL here.
-const RENDER_URL = 'https://your-app-name.onrender.com';
+const RENDER_URL = 'https://wishtracker.onrender.com';
 const LOCAL_IP = '192.168.0.188'; // Change to your current local IP
 const API_URL = `${RENDER_URL}/api/items`; // Defaulting to Render URL
 
