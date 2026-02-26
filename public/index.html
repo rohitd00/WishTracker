@@ -645,12 +645,16 @@
       sortSelect.addEventListener('change', render);
       searchInput.addEventListener('input', render);
 
-      clearBtn.addEventListener('click', () => {
+      clearBtn.addEventListener('click', async () => {
         const count = items.filter(i => i.completed).length;
-        items = items.filter(i => !i.completed);
-        save();
-        render();
-        showToast(`🗑️ Cleared ${count} completed item${count !== 1 ? 's' : ''}`);
+        try {
+          await fetch('/api/items/completed/all', { method: 'DELETE' });
+          items = items.filter(i => !i.completed);
+          render();
+          showToast(`🗑️ Cleared ${count} completed item${count !== 1 ? 's' : ''}`);
+        } catch (err) {
+          showToast('Failed to clear items');
+        }
       });
 
       async function load() {
@@ -659,16 +663,6 @@
           items = await res.json();
         } catch { items = []; }
         render();
-      }
-
-      async function save() {
-        try {
-          await fetch('/api/items', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(items),
-          });
-        } catch {}
       }
 
       function getFiltered() {
@@ -687,8 +681,7 @@
         const pOrder = { high: 0, medium: 1, low: 2 };
         if (sortVal === 'priority') list.sort((a, b) => pOrder[a.priority] - pOrder[b.priority]);
         else if (sortVal === 'az') list.sort((a, b) => a.text.localeCompare(b.text));
-        else if (sortVal === 'oldest') list.sort((a, b) => a.id - b.id);
-        else list.sort((a, b) => b.id - a.id);
+        else if (sortVal === 'oldest') list.reverse(); // backend default is newest first
 
         return list;
       }
@@ -717,12 +710,12 @@
 
         listEl.innerHTML = '';
         visible.forEach(item => {
-          const realIdx = items.findIndex(i => i.id === item.id);
+          const realIdx = items.findIndex(i => i._id === item._id);
           const li = document.createElement('div');
           li.className = 'item';
           li.dataset.priority = item.priority || 'medium';
 
-          const date = new Date(item.id).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const date = new Date(item.createdAt || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
           li.innerHTML = `
             <div class="checkbox ${item.completed ? 'checked' : ''}" data-idx="${realIdx}">
@@ -747,19 +740,29 @@
 
           // Checkbox
           li.querySelector('.checkbox').addEventListener('click', async () => {
-            items[realIdx].completed = !items[realIdx].completed;
-            await save();
-            render();
+            const currentStatus = items[realIdx].completed;
+            try {
+              const res = await fetch(`/api/items/${item._id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ completed: !currentStatus })
+              });
+              const updated = await res.json();
+              items[realIdx] = updated;
+              render();
+            } catch (err) {}
           });
 
           // Delete
           li.querySelector('.del-btn').addEventListener('click', async () => {
             li.classList.add('removing');
-            setTimeout(async () => {
-              items.splice(realIdx, 1);
-              await save();
-              render();
-            }, 200);
+            try {
+              await fetch(`/api/items/${item._id}`, { method: 'DELETE' });
+              setTimeout(() => {
+                items.splice(realIdx, 1);
+                render();
+              }, 200);
+            } catch (err) {}
           });
 
           // Inline edit
@@ -767,9 +770,18 @@
           textEl.addEventListener('blur', async () => {
             const newText = textEl.textContent.trim();
             if (newText && newText !== items[realIdx].text) {
-              items[realIdx].text = newText;
-              await save();
-              showToast('✏️ Item updated');
+              try {
+                const res = await fetch(`/api/items/${item._id}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ text: newText })
+                });
+                const updated = await res.json();
+                items[realIdx] = updated;
+                showToast('✏️ Item updated');
+              } catch (err) {
+                 textEl.textContent = items[realIdx].text;
+              }
             }
           });
 
@@ -786,12 +798,23 @@
         const text = itemInput.value.trim();
         if (!text) { itemInput.focus(); return; }
         const tag = tagInput.value.trim();
-        items.push({ id: Date.now(), text, tag, priority: selectedPriority, completed: false });
-        itemInput.value = '';
-        tagInput.value = '';
-        await save();
-        render();
-        showToast('✦ Added to wishlist');
+        
+        try {
+          const res = await fetch('/api/items', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, tag, priority: selectedPriority }),
+          });
+          const newItem = await res.json();
+          items.unshift(newItem);
+          
+          itemInput.value = '';
+          tagInput.value = '';
+          render();
+          showToast('✦ Added to wishlist');
+        } catch (err) {
+          showToast('Failed to add item');
+        }
       });
 
       itemInput.addEventListener('keydown', e => { if (e.key === 'Enter') addBtn.click(); });
