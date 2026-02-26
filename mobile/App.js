@@ -128,7 +128,7 @@ export default function App() {
 
         <View style={styles.itemBody}>
           <Text style={[styles.itemText, item.completed && styles.completedText]}>{item.text}</Text>
-          {item.tag ? <Text style={styles.tagText}>#{item.tag.toLowerCase().replace(/\s+/g, '')}</Text> : null}
+          {item.tag ? <Text style={styles.tagText}>#{String(item.tag).toLowerCase().replace(/\s+/g, '')}</Text> : null}
         </View>
 
         <TouchableOpacity onPress={() => deleteItem(item._id)} style={styles.trashBtn}>
