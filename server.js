@@ -13,10 +13,10 @@ app.use(cors()); // Enable CORS for all origins
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-// Connect to MongoDB
+// Connect to MongoDB using a specific database name for this project
 mongoose
-  .connect(MONGODB_URI)
-  .then(() => console.log("✦ Connected to MongoDB Atlas"))
+  .connect(MONGODB_URI, { dbName: "wishlist_pro" })
+  .then(() => console.log("✦ Connected to MongoDB Atlas (wishlist_pro database)"))
   .catch((err) => console.error("✕ MongoDB connection error:", err));
 
 // GET all items
